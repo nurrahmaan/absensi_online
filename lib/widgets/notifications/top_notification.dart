@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 
 void showTopNotification(
   BuildContext context,
   String message, {
   bool isError = false,
   IconData? icon,
+  String? title,
   Color? backgroundColor,
+  Duration duration = const Duration(seconds: 3),
 }) {
   final overlay = Overlay.of(context);
   late OverlayEntry overlayEntry;
 
   overlayEntry = OverlayEntry(
     builder: (context) => _TopNotificationWidget(
+      title: title,
       message: message,
       isError: isError,
       icon: icon,
       backgroundColor: backgroundColor,
+      duration: duration,
       onDismissed: () => overlayEntry.remove(),
     ),
   );
@@ -25,16 +30,20 @@ void showTopNotification(
 
 class _TopNotificationWidget extends StatefulWidget {
   final String message;
+  final String? title;
   final bool isError;
   final IconData? icon;
   final Color? backgroundColor;
+  final Duration duration;
   final VoidCallback onDismissed;
 
   const _TopNotificationWidget({
     required this.message,
+    this.title,
     this.isError = false,
     this.icon,
     this.backgroundColor,
+    this.duration = const Duration(seconds: 3),
     required this.onDismissed,
   });
 
@@ -58,17 +67,17 @@ class _TopNotificationWidgetState extends State<_TopNotificationWidget>
     );
 
     _slideAnimation = Tween<Offset>(
-            begin: const Offset(0, -1), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
+      begin: const Offset(0, -1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
-    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeIn,
-    ));
+    _fadeAnimation = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
 
     _controller.forward();
 
-    Future.delayed(const Duration(seconds: 3), () async {
+    Future.delayed(widget.duration, () async {
       await _controller.reverse();
       widget.onDismissed();
     });
@@ -76,60 +85,77 @@ class _TopNotificationWidgetState extends State<_TopNotificationWidget>
 
   @override
   Widget build(BuildContext context) {
-    Icon notifIcon = Icon(
+    final notifIcon = Icon(
       widget.icon ??
-          (widget.isError ? Icons.error : Icons.check_circle), // default icon
+          (widget.isError ? Icons.error_outline : Icons.check_circle_outline),
       color: Colors.white,
+      size: 32, // lebih besar
     );
 
-    Color bgColor = widget.backgroundColor ??
+    final notifTitle = widget.title ?? (widget.isError ? "Error" : "Success");
+
+    final bgColor = widget.backgroundColor ??
         (widget.isError
-            ? Colors.red.withOpacity(0.85)
-            : Colors.green.withOpacity(0.85));
+            ? Colors.redAccent.withOpacity(0.95)
+            : Colors.greenAccent.shade700.withOpacity(0.95));
 
     return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: SafeArea(
-        top: true,
-        child: Padding(
-          padding: const EdgeInsets.only(top: 20),
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: FadeTransition(
-              opacity: _fadeAnimation,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Material(
-                  color: Colors.transparent,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: bgColor,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: const [
-                        BoxShadow(
-                            color: Colors.black26,
-                            offset: Offset(0, 2),
-                            blurRadius: 6)
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        notifIcon,
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            widget.message,
-                            style: const TextStyle(
-                                color: Colors.white, fontSize: 16),
-                            textAlign: TextAlign.left,
-                          ),
+      top: MediaQuery.of(context).padding.top + 8,
+      left: 16,
+      right: 16,
+      child: SlideTransition(
+        position: _slideAnimation,
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+              child: Material(
+                color: Colors.transparent,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Colors.black26,
+                        blurRadius: 6,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      notifIcon,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              notifTitle,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              widget.message,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),

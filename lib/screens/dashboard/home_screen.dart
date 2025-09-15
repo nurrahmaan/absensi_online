@@ -2,14 +2,16 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../providers/core/server_connection_provider.dart';
-import 'dashboard_screen.dart';
+import 'package:another_flushbar/flushbar.dart';
+
+// Import screen yang benar
+import '../absensi/dashboard_screen.dart';
 import '../absensi/absensi_screen.dart';
 import '../absensi/daily_attendance_screen.dart';
 import '../absensi/monthly_summary_screen.dart';
 import '../user/profile_screen.dart';
 import '../auth/login_screen.dart';
-import 'package:another_flushbar/flushbar.dart';
+import '../../providers/core/server_connection_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   final String token;
@@ -22,12 +24,12 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   late final List<Widget> _screens;
-
   Timer? _serverSnackTimer;
 
   @override
   void initState() {
     super.initState();
+    // Pastikan hanya satu import DashboardScreen
     _screens = [
       DashboardScreen(token: widget.token),
       AbsensiScreen(token: widget.token),
@@ -58,40 +60,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showServerSnack(BuildContext context, bool connected) {
-    final snackBar = SnackBar(
-      content: Text(
-        connected ? '✅ Terhubung ke server' : '⚠ Tidak terkoneksi ke server!',
-      ),
-      backgroundColor: connected ? Colors.green : Colors.redAccent,
-      duration: const Duration(seconds: 5),
-      behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.all(12),
-    );
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(snackBar);
-  }
-
   @override
   Widget build(BuildContext context) {
     final serverProvider = Provider.of<ServerConnectionProvider>(context);
-
-    // Show SnackBar kalau server disconnect
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!serverProvider.isConnected) {
         Flushbar(
           title: 'Koneksi Server Terputus',
           message:
-              'Tidak dapat terhubung ke server. Mohon periksa jaringan Anda.',
+              'Tidak dapat terhubung ke server. Mohon periksa jaringan Anda atau coba kembali nanti.',
           icon: const Icon(Icons.cloud_off, color: Colors.white),
           duration: const Duration(seconds: 5),
           backgroundColor: Colors.redAccent,
           margin: const EdgeInsets.all(12),
           borderRadius: BorderRadius.circular(12),
-          flushbarPosition: FlushbarPosition.TOP, // Muncul dari atas
+          flushbarPosition: FlushbarPosition.TOP,
         ).show(context);
       }
     });
@@ -102,8 +86,6 @@ class _HomeScreenState extends State<HomeScreen> {
           SafeArea(
             child: _screens[_currentIndex],
           ),
-
-          // Overlay card kalau internet putus
           if (!serverProvider.hasInternet)
             Positioned(
               top: 48,

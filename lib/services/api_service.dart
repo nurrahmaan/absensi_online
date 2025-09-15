@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 
@@ -9,63 +8,79 @@ class ApiService {
     receiveTimeout: ApiConfig.receiveTimeout,
   ));
 
-  // ===== Cek Koneksi Internet =====
-  Future<bool> hasInternetConnection() async {
-    try {
-      final result = await InternetAddress.lookup('google.com');
-      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  // ===== Cek Koneksi ke Server =====
-  Future<bool> hasServerConnection() async {
-    try {
-      final response = await _dio.get('/ping');
-      print("Ping response: ${response.data}"); // <-- cek isi response
-      return response.statusCode == 200 && response.data['status'] == 'success';
-    } catch (e) {
-      print("Ping error: $e"); // <-- cek error kalau gagal
-      return false;
-    }
-  }
-
   // ===== Login =====
   Future<Map<String, dynamic>> login(String username, String password) async {
     try {
-      Response response = await _dio.post('/auth/login', data: {
-        'username': username,
-        'password': password,
-      });
+      final response = await _dio.post(
+        '/api/auth/login',
+        data: {'username': username, 'password': password},
+      );
       return response.data;
     } on DioException catch (e) {
       if (e.response != null) {
         return e.response?.data ??
-            {
-              'success': false,
-              'message': 'Login gagal, periksa username/password.'
-            };
-      } else {
-        return {'success': false, 'message': 'Tidak bisa terhubung ke server.'};
+            {'success': false, 'message': 'Kesalahan server'};
       }
+      return {'success': false, 'message': 'Tidak bisa terhubung ke server'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
     }
   }
 
-  // ===== Jadwal & Absensi Hari Ini =====
+  // ===== User Profile =====
+  Future<Map<String, dynamic>> getUserProfile(String token) async {
+    try {
+      final response = await _dio.get(
+        '/api/user/profile',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return response.data;
+    } on DioException {
+      return {};
+    }
+  }
+
+  // ===== Absen Masuk (Check-in) =====
+  Future<Map<String, dynamic>> absenMasuk(String token, String type) async {
+    try {
+      final response = await _dio.post(
+        '/api/absensi/checkin',
+        data: {"type": type}, // "in" atau "out"
+        options: Options(headers: {"Authorization": "Bearer $token"}),
+      );
+
+      if (response.statusCode == 200) {
+        return response.data;
+      } else {
+        return {
+          "status": "failed",
+          "message": "Gagal koneksi server (${response.statusCode})"
+        };
+      }
+    } on DioException catch (e) {
+      if (e.response != null) {
+        return e.response?.data ??
+            {"status": "failed", "message": "Kesalahan server"};
+      } else {
+        return {
+          "status": "failed",
+          "message": "Tidak bisa terhubung ke server"
+        };
+      }
+    } catch (e) {
+      return {"status": "failed", "message": "Error: $e"};
+    }
+  }
+
+  // ===== Jadwal Hari Ini =====
   Future<Map<String, dynamic>> getJadwalToday(String token) async {
     try {
       final response = await _dio.get(
-        "/absensi/jadwalToday",
+        "/api/absensi/today",
         options: Options(headers: {"Authorization": "Bearer $token"}),
       );
-      if (response.statusCode == 200 && response.data['success'] == true) {
-        final data = response.data['data'];
-        if (data is List && data.isNotEmpty) return data[0];
-      }
-      return {};
-    } on DioException catch (e) {
-      print("Error getJadwalToday: ${e.message}");
+      return response.data;
+    } on DioException {
       return {};
     }
   }
@@ -74,15 +89,11 @@ class ApiService {
   Future<Map<String, dynamic>> getMonthlySummary(String token) async {
     try {
       final response = await _dio.get(
-        "/absensi/monthlySummary",
+        "/api/absensi/summary",
         options: Options(headers: {"Authorization": "Bearer $token"}),
       );
-      if (response.statusCode == 200 && response.data['success'] == true) {
-        return response.data['data'] ?? {};
-      }
-      return {};
-    } on DioException catch (e) {
-      print("Error getMonthlySummary: ${e.message}");
+      return response.data;
+    } on DioException {
       return {};
     }
   }
@@ -91,65 +102,57 @@ class ApiService {
   Future<List<Map<String, dynamic>>> getLastFiveDays(String token) async {
     try {
       final response = await _dio.get(
-        "/absensi/lastfiveDays",
+        "/api/absensi/last5days",
         options: Options(headers: {"Authorization": "Bearer $token"}),
       );
-      if (response.statusCode == 200 && response.data['success'] == true) {
-        final data = response.data['data'];
-        if (data is List) return List<Map<String, dynamic>>.from(data);
+      if (response.statusCode == 200) {
+        final data = response.data as List;
+        return List<Map<String, dynamic>>.from(data);
       }
       return [];
-    } on DioException catch (e) {
-      print("Error getLastFiveDays: ${e.message}");
+    } on DioException {
       return [];
     }
   }
 
-  // ===== User Profile =====
-  Future<Map<String, dynamic>> getUserProfile(String token) async {
+  // ===== Lokasi Kantor =====
+  Future<List<Map<String, dynamic>>> getLokasiKantor(String token) async {
     try {
       final response = await _dio.get(
-        '/user/profile',
+        '/api/absensi/kantor',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
-      return response.data['data'] ?? {};
-    } catch (e) {
-      print('getUserProfile error: $e');
-      return {};
+
+      if (response.statusCode == 200 && response.data['kantor'] != null) {
+        final List data = response.data['kantor'];
+        return List<Map<String, dynamic>>.from(data);
+      }
+      return [];
+    } catch (_) {
+      return [];
     }
   }
 
-  // ===== Quick Absen (lama) =====
-  Future<bool> quickAbsen(String token) async {
+  Future<bool> hasInternetConnection() async {
     try {
-      final response = await _dio.post(
-        '/quick_absen',
-        options: Options(headers: {'Authorization': 'Bearer $token'}),
-      );
-      return response.data['success'] == true;
-    } catch (e) {
-      print('quickAbsen error: $e');
+      final response = await Dio().get('https://google.com').timeout(
+            const Duration(seconds: 3),
+          );
+      return response.statusCode == 200;
+    } catch (_) {
       return false;
     }
   }
 
-  // ===== Absen In/Out (baru) =====
-  Future<Map<String, dynamic>> absen(String token, String type) async {
+  // Cek koneksi server backend
+  Future<bool> hasServerConnection() async {
     try {
-      final response = await _dio.post(
-        '/absensi',
-        data: {"type": type}, // contoh: { "type": "in" } atau { "type": "out" }
-        options: Options(headers: {"Authorization": "Bearer $token"}),
-      );
-      return response.data;
-    } on DioException catch (e) {
-      if (e.response != null) {
-        return e.response?.data ?? {'success': false, 'message': 'Gagal absen'};
-      } else {
-        return {'success': false, 'message': 'Tidak bisa terhubung ke server'};
-      }
-    } catch (e) {
-      return {'success': false, 'message': 'Error: $e'};
+      final response = await Dio().get('${ApiConfig.baseUrl}/ping').timeout(
+            const Duration(seconds: 3),
+          );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
     }
   }
 }
