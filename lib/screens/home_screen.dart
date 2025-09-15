@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,7 +21,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   late final List<Widget> _screens;
-  bool _showBanner = true;
+
+  Timer? _serverSnackTimer;
 
   @override
   void initState() {
@@ -32,6 +34,12 @@ class _HomeScreenState extends State<HomeScreen> {
       MonthlySummaryScreen(token: widget.token),
       const ProfileScreen(),
     ];
+  }
+
+  @override
+  void dispose() {
+    _serverSnackTimer?.cancel();
+    super.dispose();
   }
 
   void _onTap(int index) {
@@ -49,62 +57,75 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _autoHideBanner() {
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) {
-        setState(() {
-          _showBanner = false;
-        });
-      }
-    });
+  void _showServerSnack(BuildContext context, bool connected) {
+    final snackBar = SnackBar(
+      content: Text(
+        connected ? '✅ Terhubung ke server' : '⚠ Tidak terkoneksi ke server!',
+      ),
+      backgroundColor: connected ? Colors.green : Colors.redAccent,
+      duration: const Duration(seconds: 5),
+      behavior: SnackBarBehavior.floating,
+      margin: const EdgeInsets.all(12),
+    );
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(snackBar);
   }
 
   @override
   Widget build(BuildContext context) {
     final serverProvider = Provider.of<ServerConnectionProvider>(context);
 
-    // Reset banner tiap kali status berubah
-    if (serverProvider.isConnected && _showBanner) {
-      _autoHideBanner();
-    }
-    if (!serverProvider.isConnected && !_showBanner) {
-      setState(() {
-        _showBanner = true;
-      });
-    }
+    // Show SnackBar kalau server disconnect
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!serverProvider.isConnected) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("⚠ Tidak terkoneksi ke server!"),
+            backgroundColor: Colors.redAccent,
+            duration: Duration(seconds: 5),
+          ),
+        );
+      }
+    });
 
     return Scaffold(
-      body: SafeArea(
-        // 👈 ini biar konten tidak ketabrak notch/status bar
-        child: Column(
-          children: [
-            AnimatedSlide(
-              offset: _showBanner ? Offset.zero : const Offset(0, -1),
-              duration: const Duration(milliseconds: 400),
-              curve: Curves.easeInOut,
-              child: AnimatedOpacity(
-                opacity: _showBanner ? 1.0 : 0.0,
-                duration: const Duration(milliseconds: 400),
-                child: Container(
-                  width: double.infinity,
-                  color: serverProvider.isConnected
-                      ? Colors.green
-                      : Colors.redAccent,
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    serverProvider.isConnected
-                        ? '✅ Terhubung ke server'
-                        : '⚠ Tidak terkoneksi ke server!',
-                    style: const TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
+      body: Stack(
+        children: [
+          SafeArea(
+            child: _screens[_currentIndex],
+          ),
+
+          // Overlay card kalau internet putus
+          if (!serverProvider.hasInternet)
+            Positioned(
+              top: 20,
+              left: 16,
+              right: 16,
+              child: Card(
+                color: Colors.orange,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Icon(Icons.wifi_off, color: Colors.white),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          "Tidak ada koneksi internet!",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-            Expanded(child: _screens[_currentIndex]),
-          ],
-        ),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFF673AB7),

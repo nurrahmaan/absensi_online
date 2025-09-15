@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../providers/server_connection_provider.dart';
 import '../services/api_service.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -105,25 +103,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final serverProvider = Provider.of<ServerConnectionProvider>(context);
-
     return Scaffold(
       body: Column(
         children: [
-          // 🔴 Banner koneksi server
-          if (!serverProvider.isConnected)
-            Container(
-              width: double.infinity,
-              color: Colors.redAccent,
-              padding: const EdgeInsets.all(8),
-              child: const Text(
-                'Tidak terkoneksi ke server!',
-                style:
-                    TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center,
-              ),
-            ),
-
           // 🔵 Isi dashboard
           Expanded(
             child: _loading

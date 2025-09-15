@@ -1,35 +1,76 @@
-import 'package:flutter/material.dart';
-import '../services/api_service.dart';
+import 'dart:async';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 
-class ServerConnectionProvider with ChangeNotifier {
-  final ApiService _apiService = ApiService();
+class ServerConnectionProvider extends ChangeNotifier {
+  bool _isConnected = true;
+  bool _hasInternet = true;
 
-  bool _isConnected = false;
   bool get isConnected => _isConnected;
+  bool get hasInternet => _hasInternet;
 
-  // Untuk menandai loading ping server (opsional)
-  bool _loading = false;
-  bool get loading => _loading;
+  Timer? _timer;
 
-  // Cek koneksi ke server
-  Future<void> checkConnection() async {
-    _loading = true;
-    notifyListeners();
-
-    try {
-      final alive = await _apiService.pingServer();
-      _isConnected = alive;
-    } catch (e) {
-      print('Ping error: $e');
-      _isConnected = false;
-    }
-
-    _loading = false;
-    notifyListeners();
+  ServerConnectionProvider() {
+    _startMonitoring();
   }
 
-  // Bisa dipanggil untuk refresh koneksi
-  Future<void> refreshConnection() async {
-    await checkConnection();
+  void _startMonitoring() {
+    _timer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      await _checkInternet();
+      await _checkServer();
+    });
+  }
+
+  Future<void> _checkInternet() async {
+    try {
+      final result = await InternetAddress.lookup('google.com');
+      if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
+        if (!_hasInternet) {
+          _hasInternet = true;
+          notifyListeners();
+        }
+      }
+    } catch (_) {
+      if (_hasInternet) {
+        _hasInternet = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> _checkServer() async {
+    // ganti dengan endpoint API backend kamu
+    const url = "/ping";
+
+    try {
+      final response = await http.get(Uri.parse(url)).timeout(
+            const Duration(seconds: 3),
+          );
+
+      if (response.statusCode == 200) {
+        if (!_isConnected) {
+          _isConnected = true;
+          notifyListeners();
+        }
+      } else {
+        if (_isConnected) {
+          _isConnected = false;
+          notifyListeners();
+        }
+      }
+    } catch (_) {
+      if (_isConnected) {
+        _isConnected = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 }

@@ -1,22 +1,5 @@
-import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:location/location.dart';
-import 'package:provider/provider.dart';
-import '../providers/server_connection_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-class Kantor {
-  final String name;
-  final double lat;
-  final double lon;
-  Kantor({required this.name, required this.lat, required this.lon});
-}
-
-List<Kantor> kantorList = [
-  Kantor(name: 'Kantor A', lat: -8.583069, lon: 116.320251),
-  Kantor(name: 'Kantor B', lat: -8.584000, lon: 116.321000),
-];
+import '../services/api_service.dart';
 
 class AbsensiScreen extends StatefulWidget {
   final String token;
@@ -27,149 +10,125 @@ class AbsensiScreen extends StatefulWidget {
 }
 
 class _AbsensiScreenState extends State<AbsensiScreen> {
-  LocationData? currentPosition;
-  Timer? _timer;
-  final Location location = Location();
+  final ApiService _apiService = ApiService();
+  bool _isLoading = false;
+  String _status = "Belum Absen";
+  String? _lastTime;
 
-  @override
-  void initState() {
-    super.initState();
-    _getCurrentPosition();
-    _timer = Timer.periodic(
-        const Duration(seconds: 5), (_) => _getCurrentPosition());
-    // cek koneksi global
-    final serverProvider =
-        Provider.of<ServerConnectionProvider>(context, listen: false);
-    serverProvider.checkConnection();
-  }
+  Future<void> _checkIn() async {
+    setState(() => _isLoading = true);
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _getCurrentPosition() async {
-    bool serviceEnabled = await location.serviceEnabled();
-    if (!serviceEnabled) {
-      serviceEnabled = await location.requestService();
-      if (!serviceEnabled) return;
+    try {
+      final result = await _apiService.absen(widget.token, "in");
+      if (result["success"] == true) {
+        setState(() {
+          _status = "Sudah Check In";
+          _lastTime = result["time"];
+        });
+      } else {
+        _showError(result["message"] ?? "Gagal check in");
+      }
+    } catch (e) {
+      _showError("Terjadi kesalahan: $e");
+    } finally {
+      setState(() => _isLoading = false);
     }
+  }
 
-    PermissionStatus permissionGranted = await location.hasPermission();
-    if (permissionGranted == PermissionStatus.denied) {
-      permissionGranted = await location.requestPermission();
-      if (permissionGranted != PermissionStatus.granted) return;
+  Future<void> _checkOut() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final result = await _apiService.absen(widget.token, "out");
+      if (result["success"] == true) {
+        setState(() {
+          _status = "Sudah Check Out";
+          _lastTime = result["time"];
+        });
+      } else {
+        _showError(result["message"] ?? "Gagal check out");
+      }
+    } catch (e) {
+      _showError("Terjadi kesalahan: $e");
+    } finally {
+      setState(() => _isLoading = false);
     }
-
-    final pos = await location.getLocation();
-    setState(() => currentPosition = pos);
   }
 
-  double _calculateDistance(
-      double lat1, double lon1, double lat2, double lon2) {
-    const earthRadius = 6371000;
-    final dLat = _deg2rad(lat2 - lat1);
-    final dLon = _deg2rad(lon2 - lon1);
-    final a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(_deg2rad(lat1)) *
-            cos(_deg2rad(lat2)) *
-            sin(dLon / 2) *
-            sin(dLon / 2);
-    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
-    return earthRadius * c;
-  }
-
-  double _deg2rad(double deg) => deg * (pi / 180);
-
-  Future<void> _absenOffline(String kantorName) async {
-    final prefs = await SharedPreferences.getInstance();
-    List<String> offlineList = prefs.getStringList('offline_absen') ?? [];
-    offlineList.add('$kantorName - ${DateTime.now()}');
-    await prefs.setStringList('offline_absen', offlineList);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Absen offline berhasil!')));
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final serverProvider = Provider.of<ServerConnectionProvider>(context);
-
-    if (currentPosition == null)
-      return const Center(child: CircularProgressIndicator());
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      child: ListView(
-        children: [
-          if (!serverProvider.isConnected)
-            Card(
-              color: Colors.red[100],
-              child: ListTile(
-                leading:
-                    const Icon(Icons.warning_amber_rounded, color: Colors.red),
-                title: const Text('Tidak terkoneksi ke server!'),
-                subtitle: const Text('Silakan cek koneksi internet Anda.'),
-              ),
-            ),
-          if (serverProvider.isConnected) _buildPilihLokasi(),
-          _buildAbsenOffline(),
-        ],
+  void _showError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
       ),
     );
   }
 
-  Widget _buildPilihLokasi() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Pilih Lokasi',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        ...kantorList.map((kantor) {
-          final distance = _calculateDistance(currentPosition!.latitude!,
-              currentPosition!.longitude!, kantor.lat, kantor.lon);
-          final canCheckIn = distance <= 30;
-          return Card(
-            color: canCheckIn ? Colors.green[100] : Colors.red[100],
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              title: Text(kantor.name),
-              subtitle: Text('${distance.toStringAsFixed(1)} m'),
-              enabled: canCheckIn,
-              onTap: canCheckIn
-                  ? () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Absen berhasil!')));
-                    }
-                  : null,
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      // biar tidak kena notch
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ListTile(
+                leading:
+                    const Icon(Icons.access_time, color: Colors.deepPurple),
+                title: Text(
+                  _status,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                subtitle: _lastTime != null
+                    ? Text("Terakhir: $_lastTime")
+                    : const Text("Belum ada data"),
+              ),
             ),
-          );
-        }).toList(),
-      ],
-    );
-  }
+            const SizedBox(height: 32),
 
-  Widget _buildAbsenOffline() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 16),
-        const Text('Absen Offline',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        ...kantorList.map((kantor) {
-          return Card(
-            color: Colors.orange[100],
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            child: ListTile(
-              leading: const Icon(Icons.offline_pin, color: Colors.orange),
-              title: Text(kantor.name),
-              onTap: () => _absenOffline(kantor.name),
+            // Tombol
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _checkIn,
+                  icon: const Icon(Icons.login),
+                  label: const Text("Check In"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 14, horizontal: 24),
+                  ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: _isLoading ? null : _checkOut,
+                  icon: const Icon(Icons.logout),
+                  label: const Text("Check Out"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red,
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 14, horizontal: 24),
+                  ),
+                ),
+              ],
             ),
-          );
-        }).toList(),
-      ],
+            if (_isLoading) const SizedBox(height: 20),
+            if (_isLoading)
+              const CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation(Colors.deepPurple),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
