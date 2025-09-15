@@ -22,7 +22,7 @@ class _AbsensiScreenState extends State<AbsensiScreen> {
   LocationData? _currentPosition;
 
   List<Map<String, dynamic>> _lokasiKantor = [];
-  List<String> _offlineAbsenList = [];
+  final List<String> _offlineAbsenList = [];
 
   bool _hasInternet = false;
   bool _hasServer = false;
@@ -168,38 +168,8 @@ class _AbsensiScreenState extends State<AbsensiScreen> {
   }
 
   // ===== Absen Online =====
-  void _absenOnline(String lokasi) async {
-    final result = await _apiService.absenMasuk(widget.token, "in");
-    if (result["success"] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Absen online di $lokasi berhasil"),
-          backgroundColor: Colors.green,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Gagal absen online di $lokasi"),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 2),
-        ),
-      );
-    }
-  }
 
   // ===== Absen Offline =====
-  void _absenOffline(String lokasi) {
-    _offlineAbsenList.add(lokasi);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Absen offline di $lokasi tersimpan sementara"),
-        backgroundColor: Colors.orange,
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
