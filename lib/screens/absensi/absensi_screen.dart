@@ -1,10 +1,11 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
+import '../../services/api_service.dart';
 
 class AbsensiScreen extends StatefulWidget {
   final String token;
-
   const AbsensiScreen({required this.token, super.key});
 
   @override
@@ -13,36 +14,71 @@ class AbsensiScreen extends StatefulWidget {
 
 class _AbsensiScreenState extends State<AbsensiScreen> {
   final Location _location = Location();
-  bool _serviceEnabled = false;
-  PermissionStatus? _permissionGranted;
+  final ApiService _apiService = ApiService();
   LocationData? _currentPosition;
-
-  bool _isConnected = true; // simulasi koneksi API
   final double _radiusMeter = 30.0;
 
   final List<Map<String, dynamic>> _lokasiKantor = [
     {"name": "Kantor Pusat", "lat": -8.58997429, "lng": 116.11368783},
+    {"name": "Kantor Gebang", "lat": -8.6003893, "lng": 116.1171184},
     {"name": "Cabang Mataram", "lat": -8.589, "lng": 116.121},
     {"name": "Cabang Lombok", "lat": -8.600, "lng": 116.150},
   ];
+
+  bool _hasInternet = false;
+  bool _hasServer = false;
+  Timer? _timer;
+
+  // List offline absen sementara
+  List<String> _offlineAbsenList = [];
 
   @override
   void initState() {
     super.initState();
     _checkLocation();
+    _checkConnections();
+    _timer = Timer.periodic(const Duration(seconds: 5), (_) {
+      _checkConnections();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _checkConnections() async {
+    final internet = await _apiService.hasInternetConnection();
+    final server = internet ? await _apiService.hasServerConnection() : false;
+
+    // Sync offline absen jika server kembali online
+    if (!_hasServer && server && _offlineAbsenList.isNotEmpty) {
+      for (var lokasi in _offlineAbsenList) {
+        await _apiService.absen(widget.token, "in"); // sesuaikan type
+      }
+      _offlineAbsenList.clear();
+    }
+
+    if (mounted) {
+      setState(() {
+        _hasInternet = internet;
+        _hasServer = server;
+      });
+    }
   }
 
   Future<void> _checkLocation() async {
-    _serviceEnabled = await _location.serviceEnabled();
-    if (!_serviceEnabled) {
-      _serviceEnabled = await _location.requestService();
-      if (!_serviceEnabled) return;
+    bool serviceEnabled = await _location.serviceEnabled();
+    if (!serviceEnabled) {
+      serviceEnabled = await _location.requestService();
+      if (!serviceEnabled) return;
     }
 
-    _permissionGranted = await _location.hasPermission();
-    if (_permissionGranted == PermissionStatus.denied) {
-      _permissionGranted = await _location.requestPermission();
-      if (_permissionGranted != PermissionStatus.granted) return;
+    PermissionStatus permissionGranted = await _location.hasPermission();
+    if (permissionGranted == PermissionStatus.denied) {
+      permissionGranted = await _location.requestPermission();
+      if (permissionGranted != PermissionStatus.granted) return;
     }
 
     final position = await _location.getLocation();
@@ -65,13 +101,13 @@ class _AbsensiScreenState extends State<AbsensiScreen> {
 
   bool _isWithinRadius(double lat, double lng) {
     if (_currentPosition == null) return false;
-    double distance = _distance(
-      _currentPosition!.latitude!,
-      _currentPosition!.longitude!,
-      lat,
-      lng,
-    );
-    return distance <= _radiusMeter;
+    return _distance(
+          _currentPosition!.latitude!,
+          _currentPosition!.longitude!,
+          lat,
+          lng,
+        ) <=
+        _radiusMeter;
   }
 
   double _distanceFromCurrent(double lat, double lng) {
@@ -84,11 +120,33 @@ class _AbsensiScreenState extends State<AbsensiScreen> {
     );
   }
 
-  void _absen(String lokasi) {
+  void _absenOnline(String lokasi) async {
+    final result = await _apiService.absen(widget.token, "in");
+    if (result["success"] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Absen online di $lokasi berhasil"),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Gagal absen online di $lokasi"),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _absenOffline(String lokasi) {
+    _offlineAbsenList.add(lokasi);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("Absen di $lokasi berhasil"),
-        backgroundColor: Colors.green,
+        content: Text("Absen offline di $lokasi tersimpan sementara"),
+        backgroundColor: Colors.orange,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -96,64 +154,170 @@ class _AbsensiScreenState extends State<AbsensiScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            if (_isConnected)
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _lokasiKantor.length,
-                  itemBuilder: (context, index) {
-                    final lokasi = _lokasiKantor[index];
-                    final withinRadius =
-                        _isWithinRadius(lokasi['lat'], lokasi['lng']);
-                    final jarak =
-                        _distanceFromCurrent(lokasi['lat'], lokasi['lng']);
-
-                    return Card(
-                      elevation: 3,
-                      color: withinRadius ? Colors.green[200] : Colors.red[200],
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: ListTile(
-                        title: Text(lokasi['name']),
-                        subtitle: withinRadius
-                            ? const Text("Kamu berada di dalam lokasi absen")
-                            : Text(
-                                "Di luar jangkauan. Kamu berada ${jarak.toStringAsFixed(1)} m dari lokasi absen"),
-                        trailing: withinRadius
-                            ? IconButton(
-                                icon: const Icon(Icons.check),
-                                color: Colors.white,
-                                onPressed: () => _absen(lokasi['name']),
-                              )
-                            : null,
-                      ),
-                    );
-                  },
-                ),
-              ),
-            if (!_isConnected)
-              Expanded(
-                child: Center(
-                  child: Card(
-                    color: Colors.grey[300],
-                    child: const Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Text(
-                        "Tidak dapat mengambil data lokasi. Cek koneksi internet.",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _checkLocation();
+        await _checkConnections();
+      },
+      child: !_hasInternet
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: const [
+                SizedBox(height: 200),
+                Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text(
+                    "Tidak ada koneksi internet.\nPastikan koneksi internet kamu ada.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
-              ),
-          ],
-        ),
-      ),
+              ],
+            )
+          : _hasServer
+              ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            children: [
+                              const ListTile(
+                                leading: Icon(Icons.location_on,
+                                    color: Colors.green),
+                                title: Text(
+                                  "Lokasi Absensi (Online)",
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              ..._lokasiKantor.map((lokasi) {
+                                final withinRadius = _isWithinRadius(
+                                    lokasi['lat'], lokasi['lng']);
+                                final jarak = _distanceFromCurrent(
+                                    lokasi['lat'], lokasi['lng']);
+                                return Card(
+                                  color: withinRadius
+                                      ? Colors.green[200]
+                                      : Colors.red[200],
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                  child: ListTile(
+                                    title: Text(lokasi['name']),
+                                    subtitle: withinRadius
+                                        ? const Text(
+                                            "Kamu berada di dalam lokasi absen")
+                                        : Text(
+                                            "Di luar jangkauan. Kamu berada ${jarak.toStringAsFixed(1)} m dari lokasi absen"),
+                                    trailing: withinRadius
+                                        ? IconButton(
+                                            icon: const Icon(
+                                                Icons.chevron_right_outlined),
+                                            color: Colors.white,
+                                            onPressed: () =>
+                                                _absenOnline(lokasi['name']),
+                                          )
+                                        : null,
+                                  ),
+                                );
+                              }).toList(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              : ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Card(
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        color: Colors.orange[200],
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            children: [
+                              const ListTile(
+                                leading:
+                                    Icon(Icons.cloud_off, color: Colors.orange),
+                                title: Text(
+                                  "Absen Offline",
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                subtitle: Text(
+                                  "Absen akan disimpan pada lokal storage dan akan disinkronisasi otomatis jika server online",
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              ..._lokasiKantor.map((lokasi) {
+                                final withinRadius = _isWithinRadius(
+                                    lokasi['lat'], lokasi['lng']);
+                                final jarak = _distanceFromCurrent(
+                                    lokasi['lat'], lokasi['lng']);
+                                return Card(
+                                  color: withinRadius
+                                      ? Colors.green[200]
+                                      : Colors.red[200],
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12)),
+                                  child: ListTile(
+                                    title: Text(lokasi['name']),
+                                    subtitle: withinRadius
+                                        ? const Text(
+                                            "Kamu berada di dalam lokasi absen")
+                                        : Text(
+                                            "Di luar jangkauan. Kamu berada ${jarak.toStringAsFixed(1)} m dari lokasi absen"),
+                                    trailing: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (_offlineAbsenList
+                                            .contains(lokasi['name']))
+                                          const Icon(Icons.check,
+                                              color: Colors.blue, size: 20),
+                                        IconButton(
+                                          icon: const Icon(
+                                              Icons.chevron_right_outlined),
+                                          color: Colors.white,
+                                          onPressed: withinRadius
+                                              ? () =>
+                                                  _absenOffline(lokasi['name'])
+                                              : () {
+                                                  ScaffoldMessenger.of(context)
+                                                      .showSnackBar(
+                                                    SnackBar(
+                                                      content: Text(
+                                                          "Kamu berada di luar jangkauan. Tidak bisa absen di ${lokasi['name']}"),
+                                                      backgroundColor:
+                                                          Colors.red,
+                                                      duration: const Duration(
+                                                          seconds: 2),
+                                                    ),
+                                                  );
+                                                },
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
     );
   }
 }
