@@ -2,13 +2,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../providers/server_connection_provider.dart';
+import '../../providers/core/server_connection_provider.dart';
 import 'dashboard_screen.dart';
-import 'absensi_screen.dart';
-import 'daily_attendance_screen.dart';
-import 'monthly_summary_screen.dart';
-import 'profile_screen.dart';
-import 'login_screen.dart';
+import '../absensi/absensi_screen.dart';
+import '../absensi/daily_attendance_screen.dart';
+import '../absensi/monthly_summary_screen.dart';
+import '../user/profile_screen.dart';
+import '../auth/login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String token;

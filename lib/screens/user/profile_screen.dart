@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../utils/top_notification.dart';
-import 'login_screen.dart';
+import '../../widgets/notifications/top_notification.dart';
+import '../auth/login_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});

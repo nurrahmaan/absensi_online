@@ -23,8 +23,10 @@ class ApiService {
   Future<bool> hasServerConnection() async {
     try {
       final response = await _dio.get('/ping');
+      print("Ping response: ${response.data}"); // <-- cek isi response
       return response.statusCode == 200 && response.data['status'] == 'success';
-    } catch (_) {
+    } catch (e) {
+      print("Ping error: $e"); // <-- cek error kalau gagal
       return false;
     }
   }
