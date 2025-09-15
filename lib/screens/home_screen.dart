@@ -74,34 +74,37 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      body: Column(
-        children: [
-          AnimatedSlide(
-            offset: _showBanner ? Offset.zero : const Offset(0, -1),
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeInOut,
-            child: AnimatedOpacity(
-              opacity: _showBanner ? 1.0 : 0.0,
+      body: SafeArea(
+        // 👈 ini biar konten tidak ketabrak notch/status bar
+        child: Column(
+          children: [
+            AnimatedSlide(
+              offset: _showBanner ? Offset.zero : const Offset(0, -1),
               duration: const Duration(milliseconds: 400),
-              child: Container(
-                width: double.infinity,
-                color: serverProvider.isConnected
-                    ? Colors.green
-                    : Colors.redAccent,
-                padding: const EdgeInsets.all(8),
-                child: Text(
-                  serverProvider.isConnected
-                      ? '✅ Terhubung ke server'
-                      : '⚠ Tidak terkoneksi ke server!',
-                  style: const TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
+              curve: Curves.easeInOut,
+              child: AnimatedOpacity(
+                opacity: _showBanner ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 400),
+                child: Container(
+                  width: double.infinity,
+                  color: serverProvider.isConnected
+                      ? Colors.green
+                      : Colors.redAccent,
+                  padding: const EdgeInsets.all(8),
+                  child: Text(
+                    serverProvider.isConnected
+                        ? '✅ Terhubung ke server'
+                        : '⚠ Tidak terkoneksi ke server!',
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
             ),
-          ),
-          Expanded(child: _screens[_currentIndex]),
-        ],
+            Expanded(child: _screens[_currentIndex]),
+          ],
+        ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: const Color(0xFF673AB7),

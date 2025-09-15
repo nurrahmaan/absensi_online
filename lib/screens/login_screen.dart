@@ -1,9 +1,9 @@
+import 'package:absensi_online/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../providers/server_connection_provider.dart';
-import 'dashboard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -60,7 +60,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await prefs.setString('token', token);
 
         Navigator.pushReplacement(context,
-            MaterialPageRoute(builder: (_) => DashboardScreen(token: token)));
+            MaterialPageRoute(builder: (_) => HomeScreen(token: token)));
       } else {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(result['message']), backgroundColor: Colors.red));
