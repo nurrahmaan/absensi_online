@@ -13,22 +13,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final ApiService _apiService = ApiService();
   bool _loading = true;
 
-  Map<String, String> todayData = {
-    'jadwal_masuk': '-',
-    'jadwal_pulang': '-',
-    'absen_masuk': '-',
-    'absen_pulang': '-',
-    'status': 'Belum Absen',
-    'lokasi': '-',
-  };
-
-  Map<String, int> monthSummary = {
-    'hadir': 0,
-    'alpha': 0,
-    'telat': 0,
-    'piket': 0,
-  };
-
+  Map<String, String> todayData = {};
+  Map<String, int> monthSummary = {};
   List<Map<String, dynamic>> lastFiveDays = [];
   Map<String, dynamic> userProfile = {};
 
@@ -40,19 +26,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _fetchDashboard() async {
     setState(() => _loading = true);
-
     try {
-      final today = await _apiService.getJadwalToday(widget.token);
-      if (today.isEmpty) {
-        todayData = {
-          'jadwal_masuk': '-',
-          'jadwal_pulang': '-',
-          'absen_masuk': '-',
-          'absen_pulang': '-',
-          'status': 'Belum Absen',
-          'lokasi': '-',
-        };
-      } else {
+      final results = await Future.wait([
+        _apiService.getJadwalToday(widget.token),
+        _apiService.getMonthlySummary(widget.token),
+        _apiService.getLastFiveDays(widget.token),
+        _apiService.getUserProfile(widget.token),
+      ]);
+
+      final today = results[0] as Map<String, dynamic>;
+      final summary = results[1] as Map<String, dynamic>;
+      final last5 = results[2] as List<Map<String, dynamic>>;
+      final profile = results[3] as Map<String, dynamic>;
+
+      setState(() {
         todayData = {
           'jadwal_masuk': today['jam_masuk']?.toString() ?? '-',
           'jadwal_pulang': today['jam_pulang']?.toString() ?? '-',
@@ -65,142 +52,136 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   : 'Telat ${today['durasi_telat'] ?? '0'}m'),
           'lokasi': 'Kantor Pusat',
         };
-      }
 
-      final summary = await _apiService.getMonthlySummary(widget.token);
-      monthSummary = {
-        'hadir': int.tryParse(summary['hadir']?.toString() ?? '0') ?? 0,
-        'alpha': int.tryParse(summary['alpha']?.toString() ?? '0') ?? 0,
-        'telat': int.tryParse(summary['telat']?.toString() ?? '0') ?? 0,
-        'piket': int.tryParse(summary['piket']?.toString() ?? '0') ?? 0,
-      };
-
-      final last5 = await _apiService.getLastFiveDays(widget.token);
-      lastFiveDays = last5.map((item) {
-        return {
-          'tanggal': item['tanggal'],
-          'masuk': item['masuk'] ?? '-',
-          'pulang': item['pulang'] ?? '-',
-          'status': item['status'],
-          'tipe_kehadiran': item['tipe_kehadiran'],
+        monthSummary = {
+          'hadir': int.tryParse(summary['hadir']?.toString() ?? '0') ?? 0,
+          'alpha': int.tryParse(summary['alpha']?.toString() ?? '0') ?? 0,
+          'telat': int.tryParse(summary['telat']?.toString() ?? '0') ?? 0,
+          'piket': int.tryParse(summary['piket']?.toString() ?? '0') ?? 0,
         };
-      }).toList();
 
-      final profile = await _apiService.getUserProfile(widget.token);
-      userProfile = profile;
+        lastFiveDays = last5;
+        userProfile = profile;
+        _loading = false;
+      });
     } catch (e) {
-      print('Fetch error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Gagal mengambil data: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
       setState(() => _loading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal mengambil data: $e')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Column(
-        children: [
-          // 🔵 Isi dashboard
-          Expanded(
-            child: _loading
-                ? const Center(
-                    child: CircularProgressIndicator(
-                        color: Colors.lightBlueAccent),
-                  )
-                : RefreshIndicator(
-                    onRefresh: _fetchDashboard,
-                    child: SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      child: Column(
-                        children: [
-                          _buildUserHeader(),
-                          Transform.translate(
-                            offset: const Offset(0, -75),
-                            child: _buildAttendanceCard(),
+      extendBodyBehindAppBar: true,
+      body: _loading
+          ? const Center(
+              child: CircularProgressIndicator(color: Colors.lightBlueAccent),
+            )
+          : RefreshIndicator(
+              onRefresh: _fetchDashboard,
+              child: CustomScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  // ===== Header Sliver =====
+                  SliverToBoxAdapter(
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Header background
+                        Container(
+                          height: 200,
+                          width: double.infinity,
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF512DA8), Color(0xFF7E57C2)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.only(
+                              bottomLeft: Radius.circular(32),
+                              bottomRight: Radius.circular(32),
+                            ),
                           ),
-                          Transform.translate(
-                            offset: const Offset(0, -50),
-                            child: _buildMonthlySummaryCard(),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 32,
+                                backgroundColor: Colors.deepPurple,
+                                child: Text(
+                                  userProfile['nama'] != null
+                                      ? userProfile['nama'][0].toUpperCase()
+                                      : 'R',
+                                  style: const TextStyle(
+                                      fontSize: 24, color: Colors.white),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      userProfile['nama'] ?? 'Rahman',
+                                      style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold),
+                                    ),
+                                    Text(
+                                      userProfile['jabatan'] ??
+                                          'Jabatan / Dept',
+                                      style: const TextStyle(
+                                          color: Colors.white70, fontSize: 14),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: () async {},
+                                icon: const Icon(Icons.flash_on),
+                                label: const Text('Quick Absen'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orangeAccent,
+                                ),
+                              ),
+                            ],
                           ),
-                          Transform.translate(
-                            offset: const Offset(0, -30),
-                            child: _buildLastFiveDays(),
-                          ),
-                          const SizedBox(height: 24),
+                        ),
+
+                        // Floating Attendance Card
+                        Positioned(
+                          bottom: -60,
+                          left: 16,
+                          right: 16,
+                          child: _buildAttendanceCard(),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // ===== Content Sliver =====
+                  SliverPadding(
+                    padding: const EdgeInsets.only(top: 80, bottom: 24),
+                    sliver: SliverList(
+                      delegate: SliverChildListDelegate(
+                        [
+                          _buildMonthlySummaryCard(),
+                          const SizedBox(height: 20),
+                          _buildLastFiveDays(),
                         ],
                       ),
                     ),
                   ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildUserHeader() {
-    return Container(
-      height: 200,
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Color(0xFF512DA8), Color(0xFF7E57C2)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 32,
-              backgroundColor: Colors.deepPurple,
-              child: Text(
-                userProfile['nama'] != null
-                    ? userProfile['nama'][0].toUpperCase()
-                    : 'R', // fallback inisial
-                style: const TextStyle(fontSize: 24, color: Colors.white),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    userProfile['nama'] ?? 'Rahman',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    userProfile['jabatan'] ?? 'Jabatan / Dept',
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
                 ],
               ),
             ),
-            ElevatedButton.icon(
-              onPressed: () async {
-                // aksi quick absen
-              },
-              icon: const Icon(Icons.flash_on),
-              label: const Text('Quick Absen'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.orangeAccent,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -226,18 +207,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 6,
-      margin: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF9F0), // putih tulang
+          color: const Color(0xFFFFF9F0),
           borderRadius: BorderRadius.circular(18),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
         ),
         padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
         child: Column(
@@ -327,14 +300,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _summaryItem('Hadir', monthSummary['hadir']!, Icons.check_circle,
-                Colors.green),
-            _summaryItem('Alpha', monthSummary['alpha']!, Icons.cancel,
+            _summaryItem('Hadir', monthSummary['hadir'] ?? 0,
+                Icons.check_circle, Colors.green),
+            _summaryItem('Alpha', monthSummary['alpha'] ?? 0, Icons.cancel,
                 Colors.redAccent),
-            _summaryItem('Telat', monthSummary['telat']!, Icons.access_time,
+            _summaryItem('Telat', monthSummary['telat'] ?? 0, Icons.access_time,
                 Colors.orangeAccent),
-            _summaryItem('Piket', monthSummary['piket']!, Icons.assignment_ind,
-                Colors.white60),
+            _summaryItem('Piket', monthSummary['piket'] ?? 0,
+                Icons.assignment_ind, Colors.white60),
           ],
         ),
       ),
@@ -366,18 +339,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
-        color: Colors.black.withOpacity(0.05), // hitam soft background
-        border: Border.all(
-          color: Colors.black.withOpacity(0.1),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: Colors.black.withOpacity(0.05),
+        border: Border.all(color: Colors.black.withOpacity(0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -397,132 +360,135 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: TextStyle(color: Colors.black45, fontSize: 12),
             )
           else
-            Column(
-              children: lastFiveDays.map((item) {
-                bool hasStatus =
-                    item['status'] != null && item['status'].isNotEmpty;
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: lastFiveDays.length,
+              itemBuilder: (context, index) {
+                return _buildLastFiveItem(lastFiveDays[index]);
+              },
+            ),
+        ],
+      ),
+    );
+  }
 
-                // Status color
-                Color statusColor;
-                switch (item['status']) {
-                  case 'On-time':
-                    statusColor = Colors.green;
-                    break;
-                  case 'Belum Absen':
-                    statusColor = Colors.orange;
-                    break;
-                  case 'Alpa':
-                    statusColor = Colors.redAccent;
-                    break;
-                  default:
-                    statusColor = Colors.red;
-                }
+  Widget _buildLastFiveItem(Map<String, dynamic> item) {
+    bool hasStatus = item['status'] != null && item['status'].isNotEmpty;
 
-                // Badge color
-                Color badgeColor;
-                switch (item['tipe_kehadiran']) {
-                  case 'piket':
-                    badgeColor = Colors.blueAccent;
-                    break;
-                  case 'libur':
-                    badgeColor = Colors.green;
-                    break;
-                  default:
-                    badgeColor = Colors.orangeAccent; // peach soft
-                }
+    Color statusColor;
+    switch (item['status']) {
+      case 'On-time':
+        statusColor = Colors.green;
+        break;
+      case 'Belum Absen':
+        statusColor = Colors.orange;
+        break;
+      case 'Alpa':
+        statusColor = Colors.redAccent;
+        break;
+      default:
+        statusColor = Colors.red;
+    }
 
-                return Container(
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    color: Colors.white, // peach soft
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
+    Color badgeColor;
+    switch (item['tipe_kehadiran']) {
+      case 'piket':
+        badgeColor = Colors.blueAccent;
+        break;
+      case 'libur':
+        badgeColor = Colors.green;
+        break;
+      default:
+        badgeColor = Colors.orangeAccent;
+    }
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      item['tanggal'],
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Colors.black87,
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Text(
-                                  item['tanggal'],
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 14,
-                                    color: Colors.black87,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                if (item['tipe_kehadiran'] != null &&
-                                    item['tipe_kehadiran'].isNotEmpty)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: badgeColor,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      item['tipe_kehadiran'].toUpperCase(),
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              children: [
-                                Text(
-                                  "Masuk: ${item['masuk']}",
-                                  style: const TextStyle(
-                                      color: Colors.black87, fontSize: 12),
-                                ),
-                                const SizedBox(width: 16),
-                                Text(
-                                  "Pulang: ${item['pulang']}",
-                                  style: const TextStyle(
-                                      color: Colors.black87, fontSize: 12),
-                                ),
-                              ],
-                            ),
-                          ],
+                    ),
+                    const SizedBox(width: 6),
+                    if (item['tipe_kehadiran'] != null &&
+                        item['tipe_kehadiran'].isNotEmpty)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: badgeColor,
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                      ),
-                      if (hasStatus)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: statusColor,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            item['status'],
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10,
-                            ),
+                        child: Text(
+                          item['tipe_kehadiran'].toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                    ],
-                  ),
-                );
-              }).toList(),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Text(
+                      "Masuk: ${item['masuk']}",
+                      style:
+                          const TextStyle(color: Colors.black87, fontSize: 12),
+                    ),
+                    const SizedBox(width: 16),
+                    Text(
+                      "Pulang: ${item['pulang']}",
+                      style:
+                          const TextStyle(color: Colors.black87, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (hasStatus)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: statusColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                item['status'],
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                ),
+              ),
             ),
         ],
       ),

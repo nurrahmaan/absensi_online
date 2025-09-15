@@ -9,6 +9,7 @@ import '../absensi/daily_attendance_screen.dart';
 import '../absensi/monthly_summary_screen.dart';
 import '../user/profile_screen.dart';
 import '../auth/login_screen.dart';
+import 'package:another_flushbar/flushbar.dart';
 
 class HomeScreen extends StatefulWidget {
   final String token;
@@ -78,15 +79,20 @@ class _HomeScreenState extends State<HomeScreen> {
     final serverProvider = Provider.of<ServerConnectionProvider>(context);
 
     // Show SnackBar kalau server disconnect
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!serverProvider.isConnected) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("⚠ Tidak terkoneksi ke server!"),
-            backgroundColor: Colors.redAccent,
-            duration: Duration(seconds: 5),
-          ),
-        );
+        Flushbar(
+          title: 'Koneksi Server Terputus',
+          message:
+              'Tidak dapat terhubung ke server. Mohon periksa jaringan Anda.',
+          icon: const Icon(Icons.cloud_off, color: Colors.white),
+          duration: const Duration(seconds: 5),
+          backgroundColor: Colors.redAccent,
+          margin: const EdgeInsets.all(12),
+          borderRadius: BorderRadius.circular(12),
+          flushbarPosition: FlushbarPosition.TOP, // Muncul dari atas
+        ).show(context);
       }
     });
 
@@ -100,11 +106,11 @@ class _HomeScreenState extends State<HomeScreen> {
           // Overlay card kalau internet putus
           if (!serverProvider.hasInternet)
             Positioned(
-              top: 20,
+              top: 48,
               left: 16,
               right: 16,
               child: Card(
-                color: Colors.orange,
+                color: Colors.red,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

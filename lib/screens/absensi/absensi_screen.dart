@@ -1,8 +1,10 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
-import '../../services/api_service.dart';
+import 'package:location/location.dart';
 
 class AbsensiScreen extends StatefulWidget {
   final String token;
+
   const AbsensiScreen({required this.token, super.key});
 
   @override
@@ -10,58 +12,84 @@ class AbsensiScreen extends StatefulWidget {
 }
 
 class _AbsensiScreenState extends State<AbsensiScreen> {
-  final ApiService _apiService = ApiService();
-  bool _isLoading = false;
-  String _status = "Belum Absen";
-  String? _lastTime;
+  final Location _location = Location();
+  bool _serviceEnabled = false;
+  PermissionStatus? _permissionGranted;
+  LocationData? _currentPosition;
 
-  Future<void> _checkIn() async {
-    setState(() => _isLoading = true);
+  bool _isConnected = true; // simulasi koneksi API
+  final double _radiusMeter = 30.0;
 
-    try {
-      final result = await _apiService.absen(widget.token, "in");
-      if (result["success"] == true) {
-        setState(() {
-          _status = "Sudah Check In";
-          _lastTime = result["time"];
-        });
-      } else {
-        _showError(result["message"] ?? "Gagal check in");
-      }
-    } catch (e) {
-      _showError("Terjadi kesalahan: $e");
-    } finally {
-      setState(() => _isLoading = false);
-    }
+  final List<Map<String, dynamic>> _lokasiKantor = [
+    {"name": "Kantor Pusat", "lat": -8.58997429, "lng": 116.11368783},
+    {"name": "Cabang Mataram", "lat": -8.589, "lng": 116.121},
+    {"name": "Cabang Lombok", "lat": -8.600, "lng": 116.150},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLocation();
   }
 
-  Future<void> _checkOut() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final result = await _apiService.absen(widget.token, "out");
-      if (result["success"] == true) {
-        setState(() {
-          _status = "Sudah Check Out";
-          _lastTime = result["time"];
-        });
-      } else {
-        _showError(result["message"] ?? "Gagal check out");
-      }
-    } catch (e) {
-      _showError("Terjadi kesalahan: $e");
-    } finally {
-      setState(() => _isLoading = false);
+  Future<void> _checkLocation() async {
+    _serviceEnabled = await _location.serviceEnabled();
+    if (!_serviceEnabled) {
+      _serviceEnabled = await _location.requestService();
+      if (!_serviceEnabled) return;
     }
+
+    _permissionGranted = await _location.hasPermission();
+    if (_permissionGranted == PermissionStatus.denied) {
+      _permissionGranted = await _location.requestPermission();
+      if (_permissionGranted != PermissionStatus.granted) return;
+    }
+
+    final position = await _location.getLocation();
+    setState(() {
+      _currentPosition = position;
+    });
   }
 
-  void _showError(String message) {
-    if (!mounted) return;
+  double _distance(double lat1, double lng1, double lat2, double lng2) {
+    const double earthRadius = 6371000; // meter
+    double dLat = (lat2 - lat1) * (pi / 180);
+    double dLng = (lng2 - lng1) * (pi / 180);
+    double a = (sin(dLat / 2) * sin(dLat / 2)) +
+        cos(lat1 * (pi / 180)) *
+            cos(lat2 * (pi / 180)) *
+            (sin(dLng / 2) * sin(dLng / 2));
+    double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  bool _isWithinRadius(double lat, double lng) {
+    if (_currentPosition == null) return false;
+    double distance = _distance(
+      _currentPosition!.latitude!,
+      _currentPosition!.longitude!,
+      lat,
+      lng,
+    );
+    return distance <= _radiusMeter;
+  }
+
+  double _distanceFromCurrent(double lat, double lng) {
+    if (_currentPosition == null) return 0.0;
+    return _distance(
+      _currentPosition!.latitude!,
+      _currentPosition!.longitude!,
+      lat,
+      lng,
+    );
+  }
+
+  void _absen(String lokasi) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-        duration: const Duration(seconds: 3),
+        content: Text("Absen di $lokasi berhasil"),
+        backgroundColor: Colors.green,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -69,62 +97,59 @@ class _AbsensiScreenState extends State<AbsensiScreen> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      // biar tidak kena notch
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: ListTile(
-                leading:
-                    const Icon(Icons.access_time, color: Colors.deepPurple),
-                title: Text(
-                  _status,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                subtitle: _lastTime != null
-                    ? Text("Terakhir: $_lastTime")
-                    : const Text("Belum ada data"),
-              ),
-            ),
-            const SizedBox(height: 32),
+            if (_isConnected)
+              Expanded(
+                child: ListView.builder(
+                  itemCount: _lokasiKantor.length,
+                  itemBuilder: (context, index) {
+                    final lokasi = _lokasiKantor[index];
+                    final withinRadius =
+                        _isWithinRadius(lokasi['lat'], lokasi['lng']);
+                    final jarak =
+                        _distanceFromCurrent(lokasi['lat'], lokasi['lng']);
 
-            // Tombol
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _checkIn,
-                  icon: const Icon(Icons.login),
-                  label: const Text("Check In"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 14, horizontal: 24),
+                    return Card(
+                      elevation: 3,
+                      color: withinRadius ? Colors.green[200] : Colors.red[200],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListTile(
+                        title: Text(lokasi['name']),
+                        subtitle: withinRadius
+                            ? const Text("Kamu berada di dalam lokasi absen")
+                            : Text(
+                                "Di luar jangkauan. Kamu berada ${jarak.toStringAsFixed(1)} m dari lokasi absen"),
+                        trailing: withinRadius
+                            ? IconButton(
+                                icon: const Icon(Icons.check),
+                                color: Colors.white,
+                                onPressed: () => _absen(lokasi['name']),
+                              )
+                            : null,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            if (!_isConnected)
+              Expanded(
+                child: Center(
+                  child: Card(
+                    color: Colors.grey[300],
+                    child: const Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: Text(
+                        "Tidak dapat mengambil data lokasi. Cek koneksi internet.",
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ),
                 ),
-                ElevatedButton.icon(
-                  onPressed: _isLoading ? null : _checkOut,
-                  icon: const Icon(Icons.logout),
-                  label: const Text("Check Out"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 14, horizontal: 24),
-                  ),
-                ),
-              ],
-            ),
-            if (_isLoading) const SizedBox(height: 20),
-            if (_isLoading)
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation(Colors.deepPurple),
               ),
           ],
         ),

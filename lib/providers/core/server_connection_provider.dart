@@ -1,7 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
+import '/services/api_service.dart';
 
 class ServerConnectionProvider extends ChangeNotifier {
   bool _isConnected = true;
@@ -11,6 +10,7 @@ class ServerConnectionProvider extends ChangeNotifier {
   bool get hasInternet => _hasInternet;
 
   Timer? _timer;
+  final ApiService _apiService = ApiService();
 
   ServerConnectionProvider() {
     _startMonitoring();
@@ -24,47 +24,18 @@ class ServerConnectionProvider extends ChangeNotifier {
   }
 
   Future<void> _checkInternet() async {
-    try {
-      final result = await InternetAddress.lookup('google.com');
-      if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
-        if (!_hasInternet) {
-          _hasInternet = true;
-          notifyListeners();
-        }
-      }
-    } catch (_) {
-      if (_hasInternet) {
-        _hasInternet = false;
-        notifyListeners();
-      }
+    final connected = await _apiService.hasInternetConnection();
+    if (_hasInternet != connected) {
+      _hasInternet = connected;
+      notifyListeners();
     }
   }
 
   Future<void> _checkServer() async {
-    // ganti dengan endpoint API backend kamu
-    const url = "/ping";
-
-    try {
-      final response = await http.get(Uri.parse(url)).timeout(
-            const Duration(seconds: 3),
-          );
-
-      if (response.statusCode == 200) {
-        if (!_isConnected) {
-          _isConnected = true;
-          notifyListeners();
-        }
-      } else {
-        if (_isConnected) {
-          _isConnected = false;
-          notifyListeners();
-        }
-      }
-    } catch (_) {
-      if (_isConnected) {
-        _isConnected = false;
-        notifyListeners();
-      }
+    final connected = await _apiService.hasServerConnection();
+    if (_isConnected != connected) {
+      _isConnected = connected;
+      notifyListeners();
     }
   }
 
