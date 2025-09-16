@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:absensi_online/providers/absensi/history_provider.dart';
+import 'package:absensi_online/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,7 +8,7 @@ import '../../providers/core/server_connection_provider.dart';
 import 'dashboard_screen.dart';
 import '../absensi/absensi_screen.dart';
 import '../absensi/daily_attendance_screen.dart';
-import '../absensi/monthly_summary_screen.dart';
+import '../absensi/history_screen.dart';
 import '../user/profile_screen.dart';
 import '../auth/login_screen.dart';
 import 'package:another_flushbar/flushbar.dart';
@@ -32,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
       DashboardScreen(token: widget.token),
       AbsensiScreen(token: widget.token),
       DailyAttendanceScreen(token: widget.token),
-      MonthlySummaryScreen(token: widget.token),
+      HistoryScreen(token: widget.token),
       const ProfileScreen(),
     ];
   }

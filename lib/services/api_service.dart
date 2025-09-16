@@ -70,7 +70,7 @@ class ApiService {
     }
   }
 
-  // ===== Ringkasan Bulanan =====
+  // ===== Ringkasan Bulanan pada dashboard=====
   Future<Map<String, dynamic>> getMonthlySummary(String token) async {
     try {
       final response = await _dio.get(
@@ -83,6 +83,30 @@ class ApiService {
       return {};
     } on DioException catch (e) {
       print("Error getMonthlySummary: ${e.message}");
+      return {};
+    }
+  }
+
+  // ===== History Bulanan=====
+  Future<Map<String, dynamic>> getHistory(String token,
+      {int? month, int? year}) async {
+    try {
+      final response = await _dio.get(
+        "/absensi/history",
+        queryParameters: {
+          if (month != null) "month": month.toString(),
+          if (year != null) "year": year.toString(),
+        },
+        options: Options(headers: {"Authorization": "Bearer $token"}),
+      );
+      print("GET /absensi/history with params: month=$month, year=$year");
+
+      if (response.statusCode == 200 && response.data['history'] != null) {
+        return response.data;
+      }
+      return {};
+    } on DioException catch (e) {
+      print("Error getHistory: ${e.response?.data ?? e.message}");
       return {};
     }
   }

@@ -31,8 +31,6 @@ class MyApp extends StatelessWidget {
   }
 }
 
-/// Widget untuk menentukan apakah token sudah tersimpan.
-/// Jika ada token valid, langsung ke Dashboard. Kalau tidak, ke LoginScreen.
 class SplashOrLogin extends StatefulWidget {
   const SplashOrLogin({super.key});
 
@@ -68,6 +66,7 @@ class _SplashOrLoginState extends State<SplashOrLogin> {
     }
 
     if (_token != null && _token!.isNotEmpty) {
+      // Token sudah tersedia, langsung ke HomeScreen
       return HomeScreen(token: _token!);
     }
 

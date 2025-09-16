@@ -29,6 +29,7 @@ class AbsensiProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  // ini semua yg nampil di dashboard
   Future<void> fetchToday(String token) async {
     try {
       final data = await _apiService.getJadwalToday(token);
