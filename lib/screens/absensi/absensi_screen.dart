@@ -184,15 +184,16 @@ class _AbsensiScreenState extends State<AbsensiScreen> {
     );
   }
 
-  // ===== Absen Offline =====
+// ===== Absen Offline =====
   void _absenOffline(String lokasi) {
     _offlineAbsenList.add(lokasi);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("Absen offline di $lokasi tersimpan sementara"),
-        backgroundColor: Colors.orange,
-        duration: const Duration(seconds: 2),
-      ),
+
+    showTopNotification(
+      context,
+      "Absen offline di $lokasi tersimpan sementara",
+      isError: false,
+      title: "Absen Offline",
+      icon: Icons.cloud_off,
     );
   }
 
@@ -254,13 +255,12 @@ class _AbsensiScreenState extends State<AbsensiScreen> {
                               }
                             }
                           : () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                      "Kamu berada di luar jangkauan. Tidak bisa absen di ${lokasi['name']}"),
-                                  backgroundColor: Colors.red,
-                                  duration: const Duration(seconds: 2),
-                                ),
+                              showTopNotification(
+                                context,
+                                "Kamu berada di luar jangkauan. Tidak bisa absen di ${lokasi['name']}",
+                                isError: true,
+                                title: "Diluar Jangkauan",
+                                icon: Icons.error,
                               );
                             },
                     ),
