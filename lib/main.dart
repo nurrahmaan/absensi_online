@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'providers/auth/login_provider.dart';
 import 'providers/core/server_connection_provider.dart';
 import 'screens/auth/login_screen.dart';
-import 'providers/absensi/absensi_provider.dart';
 
 void main() {
   runApp(const MyApp());
@@ -19,7 +18,6 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => ServerConnectionProvider()),
         ChangeNotifierProvider(create: (_) => LoginProvider()),
-        ChangeNotifierProvider(create: (_) => AbsensiProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

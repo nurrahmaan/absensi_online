@@ -45,9 +45,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           'jadwal_pulang': today['jam_pulang']?.toString() ?? '-',
           'absen_masuk': today['masuk_jam']?.toString() ?? '-',
           'absen_pulang': today['pulang_jam']?.toString() ?? '-',
-          'status': (today['masuk_jam'] == null && today['pulang_jam'] == null)
+          'status': (today['masuk_jam'] == null)
               ? 'Belum Absen'
-              : (today['telat'] == null
+              : (today['telat'] == 'n'
                   ? 'On-time'
                   : 'Telat ${today['durasi_telat'] ?? '0'}m'),
           'lokasi': 'Kantor Pusat',

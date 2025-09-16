@@ -1,12 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
+import 'package:absensi_online/widgets/notifications/top_notification.dart';
 import 'package:flutter/material.dart';
 import 'package:location/location.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
-import 'package:provider/provider.dart';
-import '../../providers/absensi/absensi_provider.dart';
 
 class AbsensiScreen extends StatefulWidget {
   final String token;
@@ -22,7 +21,7 @@ class _AbsensiScreenState extends State<AbsensiScreen> {
   LocationData? _currentPosition;
 
   List<Map<String, dynamic>> _lokasiKantor = [];
-  final List<String> _offlineAbsenList = [];
+  List<String> _offlineAbsenList = [];
 
   bool _hasInternet = false;
   bool _hasServer = false;
@@ -53,8 +52,7 @@ class _AbsensiScreenState extends State<AbsensiScreen> {
     // Sync offline absen jika server kembali online
     if (_hasServer == false && server == true && _offlineAbsenList.isNotEmpty) {
       for (var lokasi in _offlineAbsenList) {
-        await _apiService.absenMasuk(
-            widget.token, "in"); // type bisa disesuaikan
+        await _apiService.absen(widget.token, "in"); // type bisa disesuaikan
       }
       _offlineAbsenList.clear();
     }
@@ -168,8 +166,35 @@ class _AbsensiScreenState extends State<AbsensiScreen> {
   }
 
   // ===== Absen Online =====
+  void _absenOnline(String lokasi) async {
+    final result = await _apiService.absen(widget.token, "in");
+
+    final success = result["status"] == "success";
+    final message = result["message"] ??
+        (success
+            ? "Absen online di $lokasi berhasil"
+            : "Gagal absen online di $lokasi");
+
+    showTopNotification(
+      context,
+      message,
+      isError: !success,
+      title: success ? "Absensi Berhasil" : "Absensi Gagal",
+      icon: success ? Icons.check_circle : Icons.error,
+    );
+  }
 
   // ===== Absen Offline =====
+  void _absenOffline(String lokasi) {
+    _offlineAbsenList.add(lokasi);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("Absen offline di $lokasi tersimpan sementara"),
+        backgroundColor: Colors.orange,
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -222,12 +247,11 @@ class _AbsensiScreenState extends State<AbsensiScreen> {
                       color: Colors.white,
                       onPressed: withinRadius
                           ? () {
-                              context.read<AbsensiProvider>().absen(
-                                    context,
-                                    "in",
-                                    hasInternet: _hasInternet,
-                                    hasServer: _hasServer,
-                                  );
+                              if (isOnline) {
+                                _absenOnline(lokasi['name']);
+                              } else {
+                                _absenOffline(lokasi['name']);
+                              }
                             }
                           : () {
                               ScaffoldMessenger.of(context).showSnackBar(
