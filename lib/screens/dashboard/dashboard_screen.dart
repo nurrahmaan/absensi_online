@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shimmer/shimmer.dart';
 import '../../services/api_service.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -9,7 +10,8 @@ class DashboardScreen extends StatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> {
+class _DashboardScreenState extends State<DashboardScreen>
+    with SingleTickerProviderStateMixin {
   final ApiService _apiService = ApiService();
   bool _loading = true;
 
@@ -18,10 +20,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Map<String, dynamic>> lastFiveDays = [];
   Map<String, dynamic> userProfile = {};
 
+  late AnimationController _controller;
+
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 600));
     _fetchDashboard();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchDashboard() async {
@@ -40,6 +52,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final profile = results[3] as Map<String, dynamic>;
 
       setState(() {
+        userProfile = profile;
+
         todayData = {
           'jadwal_masuk': today['jam_masuk']?.toString() ?? '-',
           'jadwal_pulang': today['jam_pulang']?.toString() ?? '-',
@@ -50,7 +64,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               : (today['telat'] == 'n'
                   ? 'On-time'
                   : 'Telat ${today['durasi_telat'] ?? '0'}m'),
-          'lokasi': 'Kantor Pusat',
+          'lokasi': profile['lokasi_absen'] ?? '-',
         };
 
         monthSummary = {
@@ -61,9 +75,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         };
 
         lastFiveDays = last5;
-        userProfile = profile;
         _loading = false;
       });
+
+      _controller.forward(from: 0);
     } catch (e) {
       setState(() => _loading = false);
       if (mounted) {
@@ -78,21 +93,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
-      body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: Colors.lightBlueAccent),
-            )
-          : RefreshIndicator(
-              onRefresh: _fetchDashboard,
-              child: CustomScrollView(
+      body: RefreshIndicator(
+        onRefresh: _fetchDashboard,
+        child: _loading
+            ? Shimmer.fromColors(
+                baseColor: Colors.grey.shade300,
+                highlightColor: Colors.grey.shade100,
+                child: ListView(
+                  children: List.generate(
+                      6,
+                      (index) => Container(
+                            height: 100,
+                            margin: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16)),
+                          )),
+                ),
+              )
+            : CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
-                  // ===== Header Sliver =====
                   SliverToBoxAdapter(
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        // Header background
                         Container(
                           height: 200,
                           width: double.infinity,
@@ -114,7 +140,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 radius: 32,
                                 backgroundColor: Colors.deepPurple,
                                 child: Text(
-                                  userProfile['nama'] != null
+                                  (userProfile['nama'] != null &&
+                                          userProfile['nama'].isNotEmpty)
                                       ? userProfile['nama'][0].toUpperCase()
                                       : 'R',
                                   style: const TextStyle(
@@ -128,15 +155,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      userProfile['nama'] ?? 'Rahman',
+                                      userProfile['nama'] ?? '-',
                                       style: const TextStyle(
                                           color: Colors.white,
                                           fontSize: 18,
                                           fontWeight: FontWeight.bold),
                                     ),
                                     Text(
-                                      userProfile['jabatan'] ??
-                                          'Jabatan / Dept',
+                                      userProfile['department'] ?? '-',
                                       style: const TextStyle(
                                           color: Colors.white70, fontSize: 14),
                                     ),
@@ -154,8 +180,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             ],
                           ),
                         ),
-
-                        // Floating Attendance Card
                         Positioned(
                           bottom: -60,
                           left: 16,
@@ -165,15 +189,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                   ),
-
-                  // ===== Content Sliver =====
                   SliverPadding(
                     padding: const EdgeInsets.only(top: 80, bottom: 24),
                     sliver: SliverList(
                       delegate: SliverChildListDelegate(
                         [
                           _buildMonthlySummaryCard(),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 20), // <-- spasi 20px
                           _buildLastFiveDays(),
                         ],
                       ),
@@ -181,7 +203,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ],
               ),
-            ),
+      ),
     );
   }
 
@@ -291,23 +313,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ================= Monthly Summary =================
   Widget _buildMonthlySummaryCard() {
     return Card(
-      color: Colors.blue.shade900.withOpacity(.70),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      elevation: 6,
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      child: Padding(
+      child: Container(
         padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF512DA8), Color(0xFF7E57C2)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _summaryItem('Hadir', monthSummary['hadir'] ?? 0,
-                Icons.check_circle, Colors.green),
+                Icons.check_circle, Colors.greenAccent),
             _summaryItem('Alpha', monthSummary['alpha'] ?? 0, Icons.cancel,
                 Colors.redAccent),
             _summaryItem('Telat', monthSummary['telat'] ?? 0, Icons.access_time,
                 Colors.orangeAccent),
             _summaryItem('Piket', monthSummary['piket'] ?? 0,
-                Icons.assignment_ind, Colors.white60),
+                Icons.assignment_ind, Colors.white70),
           ],
         ),
       ),
@@ -316,18 +352,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _summaryItem(String title, int value, IconData icon, Color color) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           decoration: BoxDecoration(
-              color: color.withOpacity(0.15), shape: BoxShape.circle),
-          padding: const EdgeInsets.all(12),
-          child: Icon(icon, color: color, size: 26),
+            shape: BoxShape.circle,
+            color: Colors.white.withOpacity(0.2),
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Icon(icon, color: color, size: 28),
         ),
-        const SizedBox(height: 6),
-        Text(value.toString(),
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-        Text(title,
-            style: const TextStyle(fontSize: 12, color: Colors.white60)),
+        const SizedBox(height: 8),
+        Text(
+          value.toString(),
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.white70,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }

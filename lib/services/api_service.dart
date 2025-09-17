@@ -99,7 +99,7 @@ class ApiService {
         },
         options: Options(headers: {"Authorization": "Bearer $token"}),
       );
-      print("GET /absensi/history with params: month=$month, year=$year");
+      // print("GET /absensi/history with params: month=$month, year=$year");
 
       if (response.statusCode == 200 && response.data['history'] != null) {
         return response.data;
@@ -136,7 +136,13 @@ class ApiService {
         '/user/profile',
         options: Options(headers: {'Authorization': 'Bearer $token'}),
       );
-      return response.data['data'] ?? {};
+
+      if (response.statusCode == 200 &&
+          response.data['data'] != null &&
+          response.data['data'].isNotEmpty) {
+        return response.data['data'][0]; // ambil user pertama
+      }
+      return {};
     } catch (e) {
       print('getUserProfile error: $e');
       return {};
@@ -165,7 +171,7 @@ class ApiService {
         data: {"type": type}, // contoh: { "type": "in" } atau { "type": "out" }
         options: Options(headers: {"Authorization": "Bearer $token"}),
       );
-      print(response);
+      // print(response);
       return response.data;
     } on DioException catch (e) {
       if (e.response != null) {

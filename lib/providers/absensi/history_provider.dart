@@ -30,13 +30,13 @@ class HistoryProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      print("Fetching history for month: $selectedMonth, year: $selectedYear");
+      // print("Fetching history for month: $selectedMonth, year: $selectedYear");
       final response = await api.getHistory(
         token,
         month: selectedMonth,
         year: selectedYear,
       );
-      print("API response: $response"); // <-- log respon dari server
+      // print("API response: $response"); // <-- log respon dari server
 
       if (response['history'] != null) {
         history = List<Map<String, dynamic>>.from(response['history']);

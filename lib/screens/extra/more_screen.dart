@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-class DailyAttendanceScreen extends StatelessWidget {
+class MoreScreen extends StatelessWidget {
   final String token;
-  const DailyAttendanceScreen({required this.token, super.key});
+  const MoreScreen({required this.token, super.key});
 
   @override
   Widget build(BuildContext context) {

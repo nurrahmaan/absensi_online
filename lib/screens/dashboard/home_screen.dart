@@ -1,13 +1,11 @@
 import 'dart:async';
-import 'package:absensi_online/providers/absensi/history_provider.dart';
-import 'package:absensi_online/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/core/server_connection_provider.dart';
 import 'dashboard_screen.dart';
 import '../absensi/absensi_screen.dart';
-import '../absensi/daily_attendance_screen.dart';
+import '../extra/more_screen.dart';
 import '../absensi/history_screen.dart';
 import '../user/profile_screen.dart';
 import '../auth/login_screen.dart';
@@ -33,9 +31,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _screens = [
       DashboardScreen(token: widget.token),
       AbsensiScreen(token: widget.token),
-      DailyAttendanceScreen(token: widget.token),
       HistoryScreen(token: widget.token),
-      const ProfileScreen(),
+      MoreScreen(token: widget.token),
+      ProfileScreen(token: widget.token),
     ];
   }
 
@@ -148,10 +146,9 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
               icon: Icon(Icons.location_on_rounded), label: 'Absen'),
           BottomNavigationBarItem(
-              icon: Icon(Icons.calendar_today), label: 'Harian'),
-          BottomNavigationBarItem(
-              icon: Icon(Icons.insert_chart), label: 'Bulanan'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profil'),
+              icon: Icon(Icons.insert_chart), label: 'Riwayat'),
+          BottomNavigationBarItem(icon: Icon(Icons.apps), label: 'Extra'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );
