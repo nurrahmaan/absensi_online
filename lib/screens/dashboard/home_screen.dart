@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../providers/core/server_connection_provider.dart';
@@ -58,28 +59,28 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showServerSnack(BuildContext context, bool connected) {
-    final snackBar = SnackBar(
-      content: Text(
-        connected ? '✅ Terhubung ke server' : '⚠ Tidak terkoneksi ke server!',
-      ),
-      backgroundColor: connected ? Colors.green : Colors.redAccent,
-      duration: const Duration(seconds: 5),
-      behavior: SnackBarBehavior.floating,
-      margin: const EdgeInsets.all(12),
-    );
+  void _updateStatusBarFromContext(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
 
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(snackBar);
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness:
+          brightness == Brightness.dark ? Brightness.light : Brightness.dark,
+      statusBarBrightness:
+          brightness == Brightness.dark ? Brightness.dark : Brightness.light,
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     final serverProvider = Provider.of<ServerConnectionProvider>(context);
 
-    // Show SnackBar kalau server disconnect
+    // update status bar sesuai theme screen aktif
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateStatusBarFromContext(context);
+    });
 
+    // Show SnackBar kalau server disconnect
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!serverProvider.isConnected) {
         Flushbar(
@@ -91,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
           backgroundColor: Colors.redAccent,
           margin: const EdgeInsets.all(12),
           borderRadius: BorderRadius.circular(12),
-          flushbarPosition: FlushbarPosition.TOP, // Muncul dari atas
+          flushbarPosition: FlushbarPosition.TOP,
         ).show(context);
       }
     });
@@ -106,28 +107,34 @@ class _HomeScreenState extends State<HomeScreen> {
           // Overlay card kalau internet putus
           if (!serverProvider.hasInternet)
             Positioned(
-              top: 48,
-              left: 16,
-              right: 16,
-              child: Card(
-                color: Colors.red,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+              top: 0, // mulai dari ujung atas layar
+              left: 0,
+              right: 0,
+              child: Container(
+                padding: EdgeInsets.only(
+                  top: MediaQuery.of(context).padding.top +
+                      12, // jaga jarak status bar
+                  left: 16,
+                  right: 16,
+                  bottom: 12,
                 ),
-                child: const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      Icon(Icons.wifi_off, color: Colors.white),
-                      SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          "Tidak ada koneksi internet!",
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ],
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(16),
                   ),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.wifi_off, color: Colors.white),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "Tidak ada koneksi internet!",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),

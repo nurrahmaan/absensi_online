@@ -178,9 +178,9 @@ class _AbsensiScreenState extends State<AbsensiScreen> {
     showTopNotification(
       context,
       message,
-      isError: !success,
       title: success ? "Absensi Berhasil" : "Absensi Gagal",
       icon: success ? Icons.check_circle : Icons.error,
+      type: NotificationType.success,
     );
   }
 
@@ -191,7 +191,6 @@ class _AbsensiScreenState extends State<AbsensiScreen> {
     showTopNotification(
       context,
       "Absen offline di $lokasi tersimpan sementara",
-      isError: false,
       title: "Absen Offline",
       icon: Icons.cloud_off,
     );
@@ -258,9 +257,7 @@ class _AbsensiScreenState extends State<AbsensiScreen> {
                               showTopNotification(
                                 context,
                                 "Kamu berada di luar jangkauan. Tidak bisa absen di ${lokasi['name']}",
-                                isError: true,
-                                title: "Diluar Jangkauan",
-                                icon: Icons.error,
+                                type: NotificationType.error,
                               );
                             },
                     ),

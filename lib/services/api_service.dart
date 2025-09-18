@@ -222,4 +222,40 @@ class ApiService {
       return [];
     }
   }
+
+  // ===== Ganti Password =====
+  Future<Map<String, dynamic>> changePassword({
+    required String token,
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '/user/change-password',
+        data: {
+          'old_password': oldPassword,
+          'new_password': newPassword,
+        },
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+
+      if (response.statusCode == 200) {
+        return response.data; // { success: true, message: "..."}
+      } else {
+        return {
+          'success': false,
+          'message': response.data['message'] ?? 'Gagal ganti password'
+        };
+      }
+    } on DioException catch (e) {
+      if (e.response != null) {
+        return e.response?.data ??
+            {'success': false, 'message': 'Gagal ganti password'};
+      } else {
+        return {'success': false, 'message': 'Tidak bisa terhubung ke server'};
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'Error: $e'};
+    }
+  }
 }

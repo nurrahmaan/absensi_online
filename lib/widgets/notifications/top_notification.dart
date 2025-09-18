@@ -1,25 +1,29 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
 
+/// Jenis notifikasi yang tersedia
+enum NotificationType { success, error, warning, info }
+
+/// Fungsi utama untuk menampilkan notifikasi di atas layar
 void showTopNotification(
   BuildContext context,
   String message, {
-  bool isError = false,
+  NotificationType type = NotificationType.success,
   IconData? icon,
   String? title,
-  Color? backgroundColor,
   Duration duration = const Duration(seconds: 3),
 }) {
   final overlay = Overlay.of(context);
+  if (overlay == null) return;
+
   late OverlayEntry overlayEntry;
 
   overlayEntry = OverlayEntry(
     builder: (context) => _TopNotificationWidget(
       title: title,
       message: message,
-      isError: isError,
+      type: type,
       icon: icon,
-      backgroundColor: backgroundColor,
       duration: duration,
       onDismissed: () => overlayEntry.remove(),
     ),
@@ -28,21 +32,20 @@ void showTopNotification(
   overlay.insert(overlayEntry);
 }
 
+/// Widget internal notifikasi
 class _TopNotificationWidget extends StatefulWidget {
   final String message;
   final String? title;
-  final bool isError;
+  final NotificationType type;
   final IconData? icon;
-  final Color? backgroundColor;
   final Duration duration;
   final VoidCallback onDismissed;
 
   const _TopNotificationWidget({
     required this.message,
     this.title,
-    this.isError = false,
+    this.type = NotificationType.success,
     this.icon,
-    this.backgroundColor,
     this.duration = const Duration(seconds: 3),
     required this.onDismissed,
   });
@@ -78,26 +81,49 @@ class _TopNotificationWidgetState extends State<_TopNotificationWidget>
     _controller.forward();
 
     Future.delayed(widget.duration, () async {
+      if (!mounted) return;
       await _controller.reverse();
-      widget.onDismissed();
+      if (mounted) widget.onDismissed();
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    // Pilih warna & ikon default berdasarkan type
+    Color bgColor;
+    String defaultTitle;
+    IconData defaultIcon;
+
+    switch (widget.type) {
+      case NotificationType.error:
+        bgColor = Colors.redAccent.withOpacity(0.95);
+        defaultTitle = "Error";
+        defaultIcon = Icons.error_outline;
+        break;
+      case NotificationType.warning:
+        bgColor = Colors.orangeAccent.withOpacity(0.95);
+        defaultTitle = "Peringatan";
+        defaultIcon = Icons.warning_amber_rounded;
+        break;
+      case NotificationType.info:
+        bgColor = Colors.blueAccent.withOpacity(0.95);
+        defaultTitle = "Info";
+        defaultIcon = Icons.info_outline;
+        break;
+      case NotificationType.success:
+      default:
+        bgColor = Colors.green.shade600.withOpacity(0.95);
+        defaultTitle = "Berhasil";
+        defaultIcon = Icons.check_circle_outline;
+    }
+
     final notifIcon = Icon(
-      widget.icon ??
-          (widget.isError ? Icons.error_outline : Icons.check_circle_outline),
+      widget.icon ?? defaultIcon,
       color: Colors.white,
-      size: 32, // lebih besar
+      size: 32,
     );
 
-    final notifTitle = widget.title ?? (widget.isError ? "Error" : "Success");
-
-    final bgColor = widget.backgroundColor ??
-        (widget.isError
-            ? Colors.redAccent.withOpacity(0.95)
-            : Colors.greenAccent.shade700.withOpacity(0.95));
+    final notifTitle = widget.title ?? defaultTitle;
 
     return Positioned(
       top: MediaQuery.of(context).padding.top + 8,
@@ -154,6 +180,14 @@ class _TopNotificationWidgetState extends State<_TopNotificationWidget>
                             ),
                           ],
                         ),
+                      ),
+                      GestureDetector(
+                        onTap: () async {
+                          await _controller.reverse();
+                          widget.onDismissed();
+                        },
+                        child: const Icon(Icons.close,
+                            color: Colors.white, size: 20),
                       ),
                     ],
                   ),

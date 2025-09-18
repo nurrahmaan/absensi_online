@@ -139,13 +139,13 @@ class _LoginScreenState extends State<LoginScreen> {
                                   showTopNotification(
                                     context,
                                     "Login berhasil",
-                                    isError: false,
+                                    type: NotificationType.success,
                                   );
                                 } else {
                                   showTopNotification(
                                     context,
                                     loginProvider.errorMessage ?? "Login gagal",
-                                    isError: true,
+                                    type: NotificationType.error,
                                   );
                                 }
                               }
