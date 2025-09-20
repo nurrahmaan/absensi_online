@@ -215,10 +215,8 @@ class HistoryScreen extends StatelessWidget {
         return Colors.green.shade600;
       case "Belum Absen":
         return Colors.orange.shade600;
-      case "Terlambat":
-        return Colors.red.shade600;
       default:
-        return Colors.grey.shade600;
+        return Colors.red.shade600;
     }
   }
 }

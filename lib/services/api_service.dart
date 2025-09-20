@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:absensi_online/models/approval.dart';
 import 'package:dio/dio.dart';
 import '../config/api_config.dart';
 
@@ -256,6 +257,38 @@ class ApiService {
       }
     } catch (e) {
       return {'success': false, 'message': 'Error: $e'};
+    }
+  }
+
+  /// Fetch daftar approvals (cuti & izin)
+  Future<List<Approval>> getApprovals(String token) async {
+    try {
+      final response = await _dio.get(
+        "/absensi/approvals",
+        options: Options(
+          headers: {
+            HttpHeaders.authorizationHeader: "Bearer $token",
+          },
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        // Pastikan response.data selalu berupa List
+        final data = response.data;
+        if (data is List) {
+          return data.map((json) => Approval.fromJson(json)).toList();
+        } else {
+          throw Exception("Format response tidak sesuai (expected List)");
+        }
+      } else {
+        throw Exception("Gagal memuat data approvals: ${response.statusCode}");
+      }
+    } on DioException catch (e) {
+      // Lebih jelas untuk debug error
+      final message = e.response?.data ?? e.message;
+      throw Exception("Gagal menghubungi server: $message");
+    } catch (e) {
+      throw Exception("Terjadi kesalahan: $e");
     }
   }
 }

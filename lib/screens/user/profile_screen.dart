@@ -1,4 +1,5 @@
 // lib/screens/user/profile_screen.dart
+import 'package:absensi_online/widgets/notifications/top_notification.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -92,9 +93,11 @@ class ProfileScreen extends StatelessWidget {
               await prefs.remove('token');
               Navigator.of(ctx).pop();
 
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Berhasil logout')),
-              );
+              // showTopNotification(
+              //   context,
+              //   "Berhasil logout",
+              //   type: NotificationType.success,
+              // );
 
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const LoginScreen()),

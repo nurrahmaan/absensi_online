@@ -1,3 +1,4 @@
+import 'package:absensi_online/providers/extra/approval_provider.dart';
 import 'package:absensi_online/screens/dashboard/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -18,6 +19,7 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => ServerConnectionProvider()),
         ChangeNotifierProvider(create: (_) => LoginProvider()),
+        ChangeNotifierProvider(create: (_) => ApprovalProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

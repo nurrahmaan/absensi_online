@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../services/api_service.dart';
+import 'package:flutter/services.dart';
 
 class DashboardScreen extends StatefulWidget {
   final String token;
@@ -91,6 +92,8 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   @override
   Widget build(BuildContext context) {
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       body: RefreshIndicator(
@@ -119,10 +122,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                     child: Stack(
                       clipBehavior: Clip.none,
                       children: [
+                        // ==== HEADER GRADIENT SEBAGAI CUSTOM APPBAR ====
                         Container(
-                          height: 200,
+                          height: 200 + statusBarHeight,
                           width: double.infinity,
-                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 80),
+                          padding: EdgeInsets.fromLTRB(
+                            16,
+                            statusBarHeight + 12, // offset agar konten turun
+                            16,
+                            80,
+                          ),
                           decoration: const BoxDecoration(
                             gradient: LinearGradient(
                               colors: [Color(0xFF512DA8), Color(0xFF7E57C2)],
@@ -180,6 +189,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                             ],
                           ),
                         ),
+
+                        // ==== ATTENDANCE CARD ====
                         Positioned(
                           bottom: -60,
                           left: 16,
@@ -195,7 +206,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       delegate: SliverChildListDelegate(
                         [
                           _buildMonthlySummaryCard(),
-                          const SizedBox(height: 20), // <-- spasi 20px
+                          const SizedBox(height: 20),
                           _buildLastFiveDays(),
                         ],
                       ),
