@@ -1,7 +1,9 @@
 import 'dart:io';
-import 'package:absensi_online/models/approval.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import '../config/api_config.dart';
+import '../models/approval.dart';
+import '../utils/time_of_day_extension.dart';
 
 class ApiService {
   final Dio _dio = Dio(BaseOptions(
@@ -289,6 +291,54 @@ class ApiService {
       throw Exception("Gagal menghubungi server: $message");
     } catch (e) {
       throw Exception("Terjadi kesalahan: $e");
+    }
+  }
+
+  Future<Map<String, dynamic>> getAssignments(String token) async {
+    try {
+      Response response = await _dio.get('/absensi/assignment',
+          options: Options(headers: {'Authorization': 'Bearer $token'}));
+      print(response.data);
+      return response.data;
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> cancelAssignment(String id, String token) async {
+    try {
+      Response response = await _dio.put(
+        '/absensi/assignment/$id/cancel',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      print("Cancel Response: ${response.data}");
+      return response.data;
+    } catch (e) {
+      print("Error cancelAssignment: $e");
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  Future<Map<String, dynamic>> addAssignment({
+    required String token,
+    required String name,
+    required DateTime date,
+    required TimeOfDay startTime,
+    required TimeOfDay endTime,
+  }) async {
+    try {
+      Response response = await _dio.post('/absensi/assignment',
+          data: {
+            'name': name,
+            'date': date.toIso8601String(),
+            'start_time': startTime.format24Hour(),
+            'end_time': endTime.format24Hour(),
+          },
+          options: Options(headers: {'Authorization': 'Bearer $token'}));
+
+      return response.data;
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
     }
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../providers/auth/login_provider.dart';
+import '../../providers/auth/user_provider.dart';
 import '../dashboard/home_screen.dart';
 import '../../widgets/notifications/top_notification.dart';
 
@@ -26,10 +27,16 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _checkSavedLogin() async {
     final loginProvider = Provider.of<LoginProvider>(context, listen: false);
     final token = await loginProvider.getSavedToken();
-    if (token != null && mounted) {
+    if (token != null && token.isNotEmpty && mounted) {
+      // Token sudah ada, load user profile & langsung ke HomeScreen
+      final userProvider = Provider.of<UserProvider>(context, listen: false);
+      await userProvider.loadUserProfile();
+
+      if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => HomeScreen(token: token)),
+        MaterialPageRoute(builder: (_) => const HomeScreen()),
       );
     }
   }
@@ -122,32 +129,38 @@ class _LoginScreenState extends State<LoginScreen> {
                       onPressed: loginProvider.isLoading
                           ? null
                           : () async {
-                              final success = await loginProvider.login(
-                                _usernameController.text,
-                                _passwordController.text,
-                              );
-                              if (mounted) {
-                                if (success) {
-                                  final token =
-                                      await loginProvider.getSavedToken() ?? '';
-                                  Navigator.pushReplacement(
+                              final username = _usernameController.text;
+                              final password = _passwordController.text;
+
+                              final success =
+                                  await loginProvider.login(username, password);
+
+                              if (!mounted) return;
+
+                              if (success) {
+                                // Ambil token terbaru & load profile
+                                final userProvider = Provider.of<UserProvider>(
                                     context,
-                                    MaterialPageRoute(
-                                      builder: (_) => HomeScreen(token: token),
-                                    ),
-                                  );
-                                  showTopNotification(
-                                    context,
-                                    "Login berhasil",
-                                    type: NotificationType.success,
-                                  );
-                                } else {
-                                  showTopNotification(
-                                    context,
-                                    loginProvider.errorMessage ?? "Login gagal",
-                                    type: NotificationType.error,
-                                  );
-                                }
+                                    listen: false);
+                                await userProvider.loadUserProfile();
+
+                                Navigator.pushReplacement(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => const HomeScreen()),
+                                );
+
+                                showTopNotification(
+                                  context,
+                                  "Login berhasil",
+                                  type: NotificationType.success,
+                                );
+                              } else {
+                                showTopNotification(
+                                  context,
+                                  loginProvider.errorMessage ?? "Login gagal",
+                                  type: NotificationType.error,
+                                );
                               }
                             },
                       style: ElevatedButton.styleFrom(
@@ -182,7 +195,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                    )
+                    ),
                   ],
                 ),
               ),
