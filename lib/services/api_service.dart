@@ -1,9 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
 import '../config/api_config.dart';
 import '../models/approval.dart';
-import '../utils/time_of_day_extension.dart';
 
 class ApiService {
   final Dio _dio = Dio(BaseOptions(
@@ -305,6 +303,38 @@ class ApiService {
     }
   }
 
+  /// Ambil list karyawan
+  Future<Map<String, dynamic>> getKaryawan(String token) async {
+    try {
+      final response = await _dio.get(
+        '/absensi/karyawan',
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      return response.data;
+    } catch (e) {
+      print("Error getKaryawan: $e");
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  /// Tambah assignment
+  Future<Map<String, dynamic>> addAssignment(
+      Map<String, dynamic> payload, String token) async {
+    try {
+      print("Submitting payload: $payload"); // debug print
+      final response = await _dio.post(
+        '/absensi/assignment',
+        data: payload,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+      );
+      print("Response: ${response.data}");
+      return response.data;
+    } catch (e) {
+      print("Error addAssignment: $e");
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
   Future<Map<String, dynamic>> cancelAssignment(String id, String token) async {
     try {
       Response response = await _dio.put(
@@ -315,29 +345,6 @@ class ApiService {
       return response.data;
     } catch (e) {
       print("Error cancelAssignment: $e");
-      return {'success': false, 'message': e.toString()};
-    }
-  }
-
-  Future<Map<String, dynamic>> addAssignment({
-    required String token,
-    required String name,
-    required DateTime date,
-    required TimeOfDay startTime,
-    required TimeOfDay endTime,
-  }) async {
-    try {
-      Response response = await _dio.post('/absensi/assignment',
-          data: {
-            'name': name,
-            'date': date.toIso8601String(),
-            'start_time': startTime.format24Hour(),
-            'end_time': endTime.format24Hour(),
-          },
-          options: Options(headers: {'Authorization': 'Bearer $token'}));
-
-      return response.data;
-    } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
   }
