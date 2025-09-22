@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth/user_provider.dart';
 import '../../services/api_service.dart';
+import '../../widgets/notifications/top_notification.dart';
 import '../extra/add_assigment_screen.dart';
 import 'detail_assignment_screen.dart';
 import 'package:intl/intl.dart';
@@ -90,7 +91,12 @@ class _ListAssignmentScreenState extends State<ListAssignmentScreen> {
             child: const Text("Tidak"),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text(
               "Ya, Batalkan",
@@ -105,25 +111,32 @@ class _ListAssignmentScreenState extends State<ListAssignmentScreen> {
 
     try {
       final res = await _apiService.cancelAssignment(
-        assignment['id'],
+        assignment['id'].toString(),
         widget.token,
       );
 
       if (res['success'] == true) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Assignment berhasil dibatalkan")),
+        showTopNotification(
+          context,
+          "Assignment berhasil dibatalkan",
+          type: NotificationType.success,
         );
         _loadAssignments();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text("Gagal: ${res['message'] ?? 'Tidak diketahui'}")),
+        showTopNotification(
+          context,
+          res['message'] ?? "Gagal membatalkan assignment",
+          type: NotificationType.error,
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
+      showTopNotification(
+        context,
+        "Error: $e",
+        type: NotificationType.error,
       );
+    } finally {
+      setState(() => isLoading = false);
     }
   }
 
@@ -210,6 +223,7 @@ class _ListAssignmentScreenState extends State<ListAssignmentScreen> {
                           separatorBuilder: (_, __) => const Divider(),
                           itemBuilder: (context, index) {
                             final item = filteredAssignments[index];
+                            final id = item['id'] ?? '-';
                             final nama = item['nama'] ?? '-';
                             final kategori = (item['kategori'] ?? '-')
                                 .toString()

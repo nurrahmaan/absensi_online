@@ -296,7 +296,7 @@ class ApiService {
     try {
       Response response = await _dio.get('/absensi/assignment',
           options: Options(headers: {'Authorization': 'Bearer $token'}));
-      print(response.data);
+      // print(response.data);
       return response.data;
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -336,6 +336,8 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> cancelAssignment(String id, String token) async {
+    print("Cancel URL: ${_dio.options.baseUrl}/assignment/$id/cancel");
+
     try {
       Response response = await _dio.put(
         '/absensi/assignment/$id/cancel',

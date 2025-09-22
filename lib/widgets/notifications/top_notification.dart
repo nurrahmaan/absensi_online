@@ -14,6 +14,7 @@ void showTopNotification(
   Duration duration = const Duration(seconds: 3),
 }) {
   final overlay = Overlay.of(context);
+  // ignore: unnecessary_null_comparison
   if (overlay == null) return;
 
   late OverlayEntry overlayEntry;
